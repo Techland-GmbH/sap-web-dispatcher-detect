@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-import os
-import sys
 import glob
-import subprocess
-import re
-from datetime import datetime
-import html
 import grp
+import html
+import os
+import re
+import subprocess
+import sys
+from datetime import datetime
+
 
 def check_sapsys_group():
     """Requirement 6: Check if the user is a member of 'sapsys'."""
@@ -20,12 +21,12 @@ def check_sapsys_group():
 
         if sapsys_gid not in user_groups and os.geteuid() != 0:
             print("Warning: The current user is not a member of the 'sapsys' group. "
-                  "This might limit the capability to find and collect all information.",
-                  file=sys.stderr)
+                  "This might limit the capability to find and collect all information.", file=sys.stderr)
     except KeyError:
         print("Warning: The group 'sapsys' does not exist on this system.", file=sys.stderr)
     except Exception as e:
-        print(f"Warning: Could not verify group membership ({e}).", file=sys.stderr)
+        print(f"Warning: Coul⁄d not verify group membership ({e}).", file=sys.stderr)
+
 
 def compare_binaries(loc1, loc2):
     """Requirement 2: Compare existence, size, and modification date."""
@@ -54,6 +55,7 @@ def compare_binaries(loc1, loc2):
     # If neither exists, this shouldn't happen based on our glob logic, but handle it cleanly
     return "Inconsistent", "red"
 
+
 def is_older_than_one_year(date_str):
     """Requirement 5: Check if the compile time is older than 1 year."""
     # Normalize multiple spaces (e.g., "Jan  5 2025" -> "Jan 5 2025")
@@ -73,6 +75,7 @@ def is_older_than_one_year(date_str):
     except ValueError:
         # If the date format is unexpected, default to not coloring it
         return False
+
 
 def collect_data():
     """Main function to discover, verify, and execute sapwebdisp."""
@@ -97,14 +100,8 @@ def collect_data():
         if not os.path.exists(loc1) and not os.path.exists(loc2):
             continue
 
-        entry = {
-            'sid': sid,
-            'release': 'N/A',
-            'patch': 'N/A',
-            'date': 'N/A',
-            'state': 'Inconsistent',
-            'state_color': 'red',
-            'date_color': 'inherit' # Default text color
+        entry = {'sid': sid, 'release': 'N/A', 'patch': 'N/A', 'date': 'N/A', 'state': 'Inconsistent',
+            'state_color': 'red', 'date_color': 'inherit'  # Default text color
         }
 
         # Check binary consistency
@@ -146,6 +143,7 @@ def collect_data():
         entries.append(entry)
 
     return entries
+
 
 def generate_html(data):
     """Generates the HTML table with the collected data."""
@@ -212,6 +210,7 @@ def generate_html(data):
 """
     return html_content
 
+
 def main():
     # 1. Run the prerequisite check
     check_sapsys_group()
@@ -221,6 +220,7 @@ def main():
 
     # 3. Output standard HTML to stdout
     print(generate_html(parsed_data))
+
 
 if __name__ == "__main__":
     main()
