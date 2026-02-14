@@ -1,0 +1,6 @@
+[project]
+name = "sap-web-dispatcher-detector"
+version = "0.1.0"
+description = "Collect information on SAP Web Dispatcher installations on a local server"
+requires-python = ">=3.9"
+dependencies = []
