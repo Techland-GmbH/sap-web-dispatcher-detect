@@ -46,7 +46,9 @@ def compare_binaries(loc1, loc2):
                 return "OK", "green"
             else:
                 return "Inconsistent", "red"
-        except Exception:
+        except OSError as e:
+            # Catch specific OS errors (e.g., PermissionError) and log them safely
+            print(f"Warning: Could not stat files for comparison ({e})", file=sys.stderr)
             return "Inconsistent", "red"
 
     # If neither exists, this shouldn't happen based on our glob logic, but handle it cleanly
