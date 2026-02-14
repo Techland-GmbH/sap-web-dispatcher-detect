@@ -20,12 +20,13 @@ def check_sapsys_group():
         user_groups.append(os.getgid())
 
         if sapsys_gid not in user_groups and os.geteuid() != 0:
-            print("Warning: The current user is not a member of the 'sapsys' group. "
-                  "This might limit the capability to find and collect all information.", file=sys.stderr)
+            print("Warning: The current user is not a member of the "
+                  "'sapsys' group. This might limit the capability to "
+                  "find and collect all information.", file=sys.stderr)
     except KeyError:
         print("Warning: The group 'sapsys' does not exist on this system.", file=sys.stderr)
-    except Exception as e:
-        print(f"Warning: Coul⁄d not verify group membership ({e}).", file=sys.stderr)
+    except OSError as e:
+        print(f"Warning: Could not verify group membership ({e}).", file=sys.stderr)
 
 
 def compare_binaries(loc1, loc2):
@@ -83,10 +84,7 @@ def collect_data():
 
     # Find all Web Dispatcher instance directories
     # Matches: /usr/sap/[A-Z][A-Z0-9][A-Z0-9]/W[0-9][0-9]
-    instance_dirs = glob.glob('/usr/sap/[A-Z][A-Z0-9][A-Z0-9]/W[0-9][0-9]')
-
-    # Sort for deterministic output
-    instance_dirs.sort()
+    instance_dirs = sorted(glob.glob('/usr/sap/[A-Z][A-Z0-9][A-Z0-9]/W[0-9][0-9]'))
 
     for w_dir in instance_dirs:
         # Extract SID from path (e.g., '/usr/sap/A52/W87' -> 'A52')
@@ -100,24 +98,24 @@ def collect_data():
         if not os.path.exists(loc1) and not os.path.exists(loc2):
             continue
 
-        entry = {'sid': sid, 'release': 'N/A', 'patch': 'N/A', 'date': 'N/A', 'state': 'Inconsistent',
-            'state_color': 'red', 'date_color': 'inherit'  # Default text color
-        }
-
-        # Check binary consistency
         state_text, state_color = compare_binaries(loc1, loc2)
-        entry['state'] = state_text
-        entry['state_color'] = state_color
 
-        # Requirement 3: Determine which binary to run
+        entry = {'sid': sid, 'release': 'N/A', 'patch': 'N/A', 'date': 'N/A', 'state': state_text,
+                 'state_color': state_color, 'date_color': 'inherit'}
+
         bin_to_run = loc1 if os.path.exists(loc1) else loc2
 
-        # Requirement 3 & 4: Execute the command and capture output
-        cmd = ['env', f'LD_LIBRARY_PATH={w_dir}', bin_to_run, '-version']
+        # 1. Build the command array directly (without the 'env' command)
+        cmd = [bin_to_run, '-version']
+
+        # 2. Copy the current environment and inject the correct LD_LIBRARY_PATH
+        custom_env = os.environ.copy()
+        custom_env['LD_LIBRARY_PATH'] = f"{w_dir}/exe"
 
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-
+            # 3. Execute with the custom environment
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True,
+                env=custom_env, check=False)
             for line in result.stdout.splitlines():
                 line = line.strip()
                 if line.startswith("kernel release"):
@@ -147,68 +145,42 @@ def collect_data():
 
 def generate_html(data):
     """Generates the HTML table with the collected data."""
-    html_content = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SAP Web Dispatcher Audit Report</title>
-    <style>
-        body { font-family: sans-serif; margin: 20px; color: #333; }
-        table { border-collapse: collapse; width: 100%; max-width: 900px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        th { background-color: #0070b8; color: white; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
-        tr:hover { background-color: #f1f1f1; }
-        .red { color: #d32f2f; font-weight: bold; }
-        .green { color: #2e7d32; font-weight: bold; }
-    </style>
-</head>
-<body>
-    <h2>SAP Web Dispatcher Versions & Consistency</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Number</th>
-                <th>SID</th>
-                <th>Release</th>
-                <th>Patch Number</th>
-                <th>Date</th>
-                <th>State</th>
-            </tr>
-        </thead>
-        <tbody>
-"""
+    html_content = ["<!DOCTYPE html>", '<html lang="en">', "<head>", '    <meta charset="UTF-8">',
+                    '    <title>SAP Web Dispatcher Audit Report</title>', "    <style>",
+                    "        body { font-family: sans-serif; margin: 20px; }",
+                    "        table { border-collapse: collapse; width: 100%; }",
+                    "        th, td { border: 1px solid #ddd; padding: 10px; }",
+                    "        th { background-color: #0070b8; color: white; }",
+                    "        tr:nth-child(even) { background-color: #f9f9f9; }",
+                    "        .red { color: #d32f2f; font-weight: bold; }",
+                    "        .green { color: #2e7d32; font-weight: bold; }", "    </style>", "</head>", "<body>",
+                    "    <h2>SAP Web Dispatcher Versions & Consistency</h2>", "    <table>", "        <thead>",
+                    "            <tr>", "                <th>Number</th>", "                <th>SID</th>",
+                    "                <th>Release</th>", "                <th>Patch Number</th>",
+                    "                <th>Date</th>", "                <th>State</th>", "            </tr>",
+                    "        </thead>", "        <tbody>"]
 
     # Requirement 1: Counter variable
     for i, entry in enumerate(data, start=1):
         sid = html.escape(entry.get('sid', 'N/A'))
-        release = html.escape(entry.get('release', 'N/A'))
-        patch = html.escape(entry.get('patch', 'N/A'))
+        rel = html.escape(entry.get('release', 'N/A'))
+        pat = html.escape(entry.get('patch', 'N/A'))
         date = html.escape(entry.get('date', 'N/A'))
 
-        state_text = entry['state']
-        state_class = "green" if entry['state_color'] == "green" else "red"
-        date_style = f"color: {entry['date_color']}; font-weight: bold;" if entry['date_color'] == 'red' else ""
+        st_text = entry['state']
+        st_cls = "green" if entry['state_color'] == "green" else "red"
 
-        row = f"""            <tr>
-                <td>{i}</td>
-                <td>{sid}</td>
-                <td>{release}</td>
-                <td>{patch}</td>
-                <td style="{date_style}">{date}</td>
-                <td class="{state_class}">{state_text}</td>
-            </tr>
-"""
-        html_content += row
+        d_color = entry['date_color']
+        d_style = f' style="color: {d_color}; font-weight: bold;"' if d_color == 'red' else ''
 
-    html_content += """        </tbody>
-    </table>
-</body>
-</html>
-"""
-    return html_content
+        html_content.extend(["            <tr>", f"                <td>{i}</td>", f"                <td>{sid}</td>",
+                             f"                <td>{rel}</td>", f"                <td>{pat}</td>",
+                             f"                <td{d_style}>{date}</td>",
+                             f'                <td class="{st_cls}">{st_text}</td>', "            </tr>"])
+
+    html_content.extend(["        </tbody>", "    </table>", "</body>", "</html>"])
+
+    return "\n".join(html_content)
 
 
 def main():
