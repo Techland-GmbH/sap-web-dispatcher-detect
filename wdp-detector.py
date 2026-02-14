@@ -140,7 +140,7 @@ def collect_data():
                     parts = line.split('=', 1)
                     if len(parts) > 1:
                         entry['patch'] = parts[1].strip()
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             print(f"Error executing {bin_to_run}: {e}", file=sys.stderr)
 
         entries.append(entry)
