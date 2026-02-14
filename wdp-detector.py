@@ -57,8 +57,8 @@ def compare_binaries(loc1, loc2):
     return "Inconsistent", "red"
 
 
-def is_older_than_one_year(date_str):
-    """Requirement 5: Check if the compile time is older than 1 year."""
+def get_date_color(date_str):
+    """Requirement 5: Check date age and return appropriate color."""
     # Normalize multiple spaces (e.g., "Jan  5 2025" -> "Jan 5 2025")
     date_str = re.sub(r'\s+', ' ', date_str.strip())
     try:
@@ -72,10 +72,13 @@ def is_older_than_one_year(date_str):
             # Handles if current date is Feb 29 and last year wasn't a leap year
             one_year_ago = now.replace(year=now.year - 1, day=28)
 
-        return parsed_date < one_year_ago
+        if parsed_date < one_year_ago:
+            return 'red'
+        else:
+            return 'green'
     except ValueError:
         # If the date format is unexpected, default to not coloring it
-        return False
+        return 'inherit'
 
 
 def collect_data():
@@ -115,7 +118,7 @@ def collect_data():
         try:
             # 3. Execute with the custom environment
             result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True,
-                env=custom_env, check=False)
+                                    env=custom_env, check=False)
             for line in result.stdout.splitlines():
                 line = line.strip()
                 if line.startswith("kernel release"):
@@ -128,8 +131,7 @@ def collect_data():
                     if len(parts) > 1:
                         d_str = parts[1].strip()
                         entry['date'] = d_str
-                        if is_older_than_one_year(d_str):
-                            entry['date_color'] = 'red'
+                        entry['date_color'] = get_date_color(d_str)
 
                 elif line.startswith("patch number"):
                     parts = line.split('=', 1)
@@ -147,8 +149,8 @@ def generate_html(data):
     """Generates the HTML table with the collected data."""
     html_content = ["<!DOCTYPE html>", '<html lang="en">', "<head>", '    <meta charset="UTF-8">',
                     '    <title>SAP Web Dispatcher Audit Report</title>', "    <style>",
-                    "        body { font-family: sans-serif; margin: 20px; }",
-                    "        table { border-collapse: collapse; width: 100%; }",
+                    "        body { font-family: sans-serif; margin: 20px; }", "        h2 { text-align: center; }",
+                    "        table { border-collapse: collapse; margin: 0 auto; }",
                     "        th, td { border: 1px solid #ddd; padding: 10px; }",
                     "        th { background-color: #0070b8; color: white; }",
                     "        tr:nth-child(even) { background-color: #f9f9f9; }",
@@ -171,7 +173,7 @@ def generate_html(data):
         st_cls = "green" if entry['state_color'] == "green" else "red"
 
         d_color = entry['date_color']
-        d_style = f' style="color: {d_color}; font-weight: bold;"' if d_color == 'red' else ''
+        d_style = f' style="color: {d_color}; font-weight: bold;"' if d_color in ('red', 'green') else ''
 
         html_content.extend(["            <tr>", f"                <td>{i}</td>", f"                <td>{sid}</td>",
                              f"                <td>{rel}</td>", f"                <td>{pat}</td>",
