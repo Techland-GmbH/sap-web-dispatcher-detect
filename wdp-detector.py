@@ -10,7 +10,7 @@ from datetime import datetime
 
 
 def check_sapsys_group():
-    """Requirement 6: Check if the user is a member of 'sapsys'."""
+    """Check if the user is a member of 'sapsys'."""
     try:
         # Get the group ID for 'sapsys'
         sapsys_gid = grp.getgrnam('sapsys').gr_gid
@@ -30,7 +30,7 @@ def check_sapsys_group():
 
 
 def compare_binaries(loc1, loc2):
-    """Requirement 2: Compare existence, size, and modification date."""
+    """Compare existence, size, and modification date of two files."""
     exists1 = os.path.exists(loc1)
     exists2 = os.path.exists(loc2)
 
@@ -58,7 +58,7 @@ def compare_binaries(loc1, loc2):
 
 
 def get_date_color(date_str):
-    """Requirement 5: Check date age and return appropriate color."""
+    """Check date age and return appropriate color."""
     # Normalize multiple spaces (e.g., "Jan  5 2025" -> "Jan 5 2025")
     date_str = re.sub(r'\s+', ' ', date_str.strip())
     try:
@@ -82,7 +82,7 @@ def get_date_color(date_str):
 
 
 def collect_data():
-    """Main function to discover, verify, and execute sapwebdisp."""
+    """Discover, verify, execute sapwebdisp and collect data."""
     entries = []
 
     # Find all Web Dispatcher instance directories
@@ -162,7 +162,6 @@ def generate_html(data):
                     "                <th>Date</th>", "                <th>State</th>", "            </tr>",
                     "        </thead>", "        <tbody>"]
 
-    # Requirement 1: Counter variable
     for i, entry in enumerate(data, start=1):
         sid = html.escape(entry.get('sid', 'N/A'))
         rel = html.escape(entry.get('release', 'N/A'))
