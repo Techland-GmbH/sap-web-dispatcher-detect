@@ -85,38 +85,35 @@ def collect_data():
     """Discover, verify, execute sapwebdisp and collect data."""
     entries = []
 
-    # Find all Web Dispatcher instance directories
-    # Matches: /usr/sap/[A-Z][A-Z0-9][A-Z0-9]/W[0-9][0-9]
-    instance_dirs = sorted(glob.glob('/usr/sap/[A-Z][A-Z0-9][A-Z0-9]/W[0-9][0-9]'))
+    # Find all SAP Web Dispatcher instance directories
+    sap_dirs = sorted(glob.glob('/usr/sap/[A-Z][A-Z0-9][A-Z0-9]'))
 
-    for w_dir in instance_dirs:
-        # Extract SID from path (e.g., '/usr/sap/A52/W87' -> 'A52')
-        path_parts = w_dir.split('/')
-        sid = path_parts[3]
+    for path in sap_dirs:
+        # Extract SID from path (e.g., '/usr/sap/A52/' -> 'A52')
+        sid = path.split('/')[3]
 
-        loc1 = f'{w_dir}/exe/sapwebdisp'
-        loc2 = f'/usr/sap/{sid}/SYS/exe/run/sapwebdisp'
+        wdisp_instance = glob.glob(f'{path}/W[0-9][0-9]/exe/sapwebdisp')
+        wdisp_global = f'{path}/SYS/exe/run/sapwebdisp'
 
-        # Skip if BOTH are missing (not a real web dispatcher installation)
-        if not os.path.exists(loc1) and not os.path.exists(loc2):
-            continue
+        if len(wdisp_instance) > 1:
+            print(f"Warning: Multiple sapwebdisp binaries found in {path}. Using the first one found.", file=sys.stderr)
+        wdisp_instance = wdisp_instance[0] if wdisp_instance else ""
 
-        state_text, state_color = compare_binaries(loc1, loc2)
+        state_text, state_color = compare_binaries(wdisp_instance, wdisp_global)
 
         entry = {'sid': sid, 'release': 'N/A', 'patch': 'N/A', 'date': 'N/A', 'state': state_text,
                  'state_color': state_color, 'date_color': 'inherit'}
 
-        bin_to_run = loc1 if os.path.exists(loc1) else loc2
+        bin_to_run = wdisp_instance if os.path.exists(wdisp_instance) else wdisp_global
 
         # 1. Build the command array directly (without the 'env' command)
         cmd = [bin_to_run, '-version']
 
         # 2. Copy the current environment and inject the correct LD_LIBRARY_PATH
         custom_env = os.environ.copy()
-        custom_env['LD_LIBRARY_PATH'] = f"{w_dir}/exe"
+        custom_env['LD_LIBRARY_PATH'] = bin_to_run.rsplit('/', 1)[0]
 
         try:
-            # 3. Execute with the custom environment
             result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True,
                                     env=custom_env, check=False)
             for line in result.stdout.splitlines():
