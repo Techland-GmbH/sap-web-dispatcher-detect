@@ -31,30 +31,24 @@ def check_sapsys_group():
 
 def compare_binaries(loc1, loc2):
     """Compare existence, size, and modification date of two files."""
-    exists1 = os.path.exists(loc1)
-    exists2 = os.path.exists(loc2)
 
     # If only one file exists, it's inconsistent
-    if exists1 != exists2:
+    if os.path.exists(loc1) != os.path.exists(loc2):
         return "Inconsistent", "red"
 
     # If both exist, check size and modification date
-    if exists1 and exists2:
-        try:
-            stat1 = os.stat(loc1)
-            stat2 = os.stat(loc2)
+    try:
+        stat1 = os.stat(loc1)
+        stat2 = os.stat(loc2)
 
-            if stat1.st_size == stat2.st_size and stat1.st_mtime == stat2.st_mtime:
-                return "OK", "green"
-            else:
-                return "Inconsistent", "red"
-        except OSError as e:
-            # Catch specific OS errors (e.g., PermissionError) and log them safely
-            print(f"Warning: Could not stat files for comparison ({e})", file=sys.stderr)
+        if stat1.st_size == stat2.st_size and stat1.st_mtime == stat2.st_mtime:
+            return "OK", "green"
+        else:
             return "Inconsistent", "red"
-
-    # If neither exists, this shouldn't happen based on our glob logic, but handle it cleanly
-    return "Inconsistent", "red"
+    except OSError as e:
+        # Catch specific OS errors (e.g., PermissionError) and log them safely
+        print(f"Warning: Could not stat files for comparison ({e})", file=sys.stderr)
+        return "Inconsistent", "red"
 
 
 def get_date_color(date_str):
