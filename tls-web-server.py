@@ -1,10 +1,18 @@
 import http.server
-import ssl
 import os
+import ssl
+
 
 def run_server(port, certfile, keyfile, target_file):
     # Define a custom handler to restrict access to the specific file
     class RestrictedHandler(http.server.SimpleHTTPRequestHandler):
+        def end_headers(self):
+            # Tell the browser not to cache this report
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
+            super().end_headers()
+
         def do_GET(self):
             # Check if the requested path matches your specific file
             if self.path == f'/{target_file}':
@@ -19,13 +27,8 @@ def run_server(port, certfile, keyfile, target_file):
     # Wrap the socket with TLS
     # certfile should contain the certificate chain
     # keyfile should contain the private key
-    httpd.socket = ssl.wrap_socket(
-        httpd.socket,
-        server_side=True,
-        certfile=certfile,
-        keyfile=keyfile,
-        ssl_version=ssl.PROTOCOL_TLS
-    )
+    httpd.socket = ssl.wrap_socket(httpd.socket, server_side=True, certfile=certfile, keyfile=keyfile,
+        ssl_version=ssl.PROTOCOL_TLS)
 
     print(f"Serving {target_file} securely on port {port}...")
     try:
@@ -33,6 +36,7 @@ def run_server(port, certfile, keyfile, target_file):
     except KeyboardInterrupt:
         print("\nServer stopped.")
         httpd.server_close()
+
 
 if __name__ == "__main__":
     # Configuration
