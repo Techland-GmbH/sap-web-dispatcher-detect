@@ -3,7 +3,6 @@ import os
 import ssl
 
 
-# Define a custom handler to restrict access to the specific file
 class RestrictedHandler(http.server.SimpleHTTPRequestHandler):
     target_file = ""
 
