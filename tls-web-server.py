@@ -31,13 +31,15 @@ def run_server(port, certfile, keyfile, target_file):
     handler = lambda request, client_address, server: RestrictedHandler(request, client_address, server)
     httpd = http.server.HTTPServer(server_address, handler)
 
-    # Wrap the socket with TLS
-    # certfile should contain the certificate chain
-    # keyfile should contain the private key
-    httpd.socket = ssl.wrap_socket(httpd.socket, server_side=True, certfile=certfile, keyfile=keyfile,
-                                   ssl_version=ssl.PROTOCOL_TLS)
+    # Create a configuration context for the TLS endpoint
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS)
+    context.load_cert_chain(certfile=certfile, keyfile=keyfile)
+    context.minimum_version = ssl.TLSVersion.TLSv1_3
 
-    print(f"Serving {target_file} securely on port {port}...")
+    # Wrap the HTTP socket using the configured TLS context
+    httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
+
+    print(f"Serving {target_file} securely via TLS on port {port}...")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
